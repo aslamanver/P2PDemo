@@ -1,9 +1,10 @@
 package com.aslam.p2pdemo;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
@@ -22,15 +23,13 @@ public class SocketServer {
         void onDataReceived(String data);
     }
 
-    public static final int PORT = 46568;
+    public static final int PORT = 85856;
 
-    private Thread socketThread;
-    // private Thread communicationThread;
-    private SocketServerRunnable socketServerRunnable;
-    // private CommunicationThreadRunnable communicationThreadRunnable;
     private ServerSocket serverSocket;
     private Socket socket;
     private SocketServerListener socketClientListener;
+    private Thread socketThread;
+    private SocketServerRunnable socketServerRunnable;
     private List<CommunicationThreadRunnable> communicationRunnableList = new ArrayList<>();
     private List<Thread> communicationThreadList = new ArrayList<>();
 
@@ -90,13 +89,25 @@ public class SocketServer {
 
                     socket = serverSocket.accept();
 
+                    // int c;
+                    // String raw = "";
+                    // do {
+                    //     c = socket.getInputStream().read();
+                    //     raw += (char) c;
+                    // } while (socket.getInputStream().available() > 0);
+                    // System.out.println(raw);
+                    //
+                    // PrintWriter printWriter = new PrintWriter(socket.getOutputStream());
+                    // printWriter.write("aslam");
+                    // printWriter.flush();
+
                     socketClientListener.onConnected(String.format("Client connected from: %s", socket.getRemoteSocketAddress().toString()));
 
-                    DataInputStream in = new DataInputStream(socket.getInputStream());
-                    socketClientListener.onDataReceived(in.readUTF());
+                    // DataInputStream in = new DataInputStream(socket.getInputStream());
+                    // socketClientListener.onDataReceived(in.readUTF());
 
-                    DataOutputStream out = new DataOutputStream(socket.getOutputStream());
-                    out.writeUTF("Thank you for connecting to " + socket.getLocalSocketAddress());
+                    // DataOutputStream out = new DataOutputStream(socket.getOutputStream());
+                    // out.writeUTF("Thank you for connecting to " + socket.getLocalSocketAddress());
 
                     for (Thread communicationThread : communicationThreadList) {
                         if (communicationThread != null && communicationThread.isAlive()) {
@@ -104,7 +115,7 @@ public class SocketServer {
                         }
                     }
 
-                    CommunicationThreadRunnable communicationThreadRunnable = new CommunicationThreadRunnable(socket, in, out);
+                    CommunicationThreadRunnable communicationThreadRunnable = new CommunicationThreadRunnable(socket);
                     Thread communicationThread = new Thread(communicationThreadRunnable);
                     communicationThread.start();
 
@@ -113,7 +124,7 @@ public class SocketServer {
                 }
 
             } catch (IOException e) {
-                if (e != null && e.getMessage().contains("Socket closed")) {
+                if (e != null && e.getMessage() != null && e.getMessage().contains("Socket closed")) {
                     return;
                 }
                 socketClientListener.onFailed(e);
@@ -142,21 +153,38 @@ public class SocketServer {
     class CommunicationThreadRunnable implements Runnable {
 
         private Socket clientSocket;
-        private DataInputStream in;
-        private DataOutputStream out;
+        private InputStream inputStream;
+        private OutputStream outputStream;
+        private PrintWriter printWriter;
 
-        public CommunicationThreadRunnable(Socket clientSocket, DataInputStream in, DataOutputStream out) {
-            this.clientSocket = clientSocket;
-            this.in = in;
-            this.out = out;
+        public CommunicationThreadRunnable(Socket socket) {
+            try {
+                clientSocket = socket;
+                inputStream = clientSocket.getInputStream();
+                outputStream = clientSocket.getOutputStream();
+                printWriter = new PrintWriter(outputStream);
+                sendData("Thank you for connecting to " + socket.getLocalSocketAddress());
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
         }
 
         @Override
         public void run() {
             try {
                 while (true) {
-                    in = new DataInputStream(this.clientSocket.getInputStream());
-                    socketClientListener.onDataReceived(in.readUTF());
+                    // in = new DataInputStream(clientSocket.getInputStream());
+                    // socketClientListener.onDataReceived(in.readUTF());
+                    int c;
+                    String fromClient = "";
+                    do {
+                        c = inputStream.read();
+                        fromClient += (char) c;
+                    } while (inputStream.available() > 0);
+                    if (c == -1) {
+                        throw new EOFException();
+                    }
+                    socketClientListener.onDataReceived(fromClient);
                 }
             } catch (EOFException e) {
                 socketClientListener.onDisconnected(e);
@@ -178,18 +206,14 @@ public class SocketServer {
         }
 
         public void sendData(final String data) {
-
             new Thread(new Runnable() {
                 @Override
                 public void run() {
-                    try {
-                        out.writeUTF(data);
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
+                    // out.writeUTF(data);
+                    printWriter.write(data);
+                    printWriter.flush();
                 }
             }).start();
-
         }
     }
 }

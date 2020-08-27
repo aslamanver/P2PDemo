@@ -1,4 +1,4 @@
-package com.aslam.p2pdemo;
+package app;
 
 import java.io.EOFException;
 import java.io.IOException;
@@ -9,8 +9,8 @@ import java.net.Socket;
 
 public class SocketClient {
 
-    private int serverPort = 85856;
-    private String serverHost = "127.0.0.1";
+    private int serverPort = 45454;
+    private String serverHost = "192.168.10.224";
 
     private Socket socket;
     private InputStream inputStream;
@@ -56,10 +56,11 @@ public class SocketClient {
                 // Runtime run = Runtime.getRuntime();
                 // Process pr = run.exec(cmd);
                 // pr.waitFor();
-                // BufferedReader buf = new BufferedReader(new InputStreamReader(pr.getInputStream()));
+                // BufferedReader buf = new BufferedReader(new
+                // InputStreamReader(pr.getInputStream()));
                 // String line = "";
                 // while ((line = buf.readLine()) != null) {
-                //     System.out.println(line);
+                // System.out.println(line);
                 // }
 
                 socket = new Socket(serverHost, serverPort);

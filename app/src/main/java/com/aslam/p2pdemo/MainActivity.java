@@ -2,11 +2,14 @@ package com.aslam.p2pdemo;
 
 import android.Manifest;
 import android.content.BroadcastReceiver;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
 import android.net.NetworkInfo;
+import android.net.Uri;
 import android.net.wifi.p2p.WifiP2pConfig;
 import android.net.wifi.p2p.WifiP2pDevice;
 import android.net.wifi.p2p.WifiP2pDeviceList;
@@ -16,6 +19,8 @@ import android.net.wifi.p2p.WifiP2pManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.provider.Telephony;
+import android.telephony.SmsManager;
 import android.util.Log;
 import android.view.View;
 
@@ -27,8 +32,11 @@ import androidx.databinding.DataBindingUtil;
 import com.aslam.p2pdemo.databinding.ActivityMainBinding;
 
 import java.io.EOFException;
+import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -40,9 +48,10 @@ public class MainActivity extends AppCompatActivity implements DeviceAdapter.Eve
     WifiP2pManager.Channel channel;
     List<WifiP2pDevice> peers = new ArrayList<>();
     DeviceAdapter deviceAdapter;
-    SocketServer socketServer;
-    SocketClient socketClient;
+    // SocketServer socketServer;
+    // SocketClient socketClient;
     WifiP2pDevice currentDevice;
+    SocketThread socketThread;
 
     BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
         @Override
@@ -185,19 +194,20 @@ public class MainActivity extends AppCompatActivity implements DeviceAdapter.Eve
                     public void onConnectionInfoAvailable(WifiP2pInfo info) {
                         if (info.groupFormed) {
                             if (info.isGroupOwner) {
-                                if (socketServer != null) {
-                                    socketServer.sendData("Something from server " + currentDevice.deviceName + " data " + new Random().nextInt(10000));
+                                if (socketThread != null) {
+                                    socketThread.sendData("Something from server " + currentDevice.deviceName + " data " + new Random().nextInt(10000));
                                     updateLog("socketServer: sendData to clients : true");
                                 }
                             } else {
-                                if (socketClient != null) {
-                                    socketClient.sendData("Something from client " + currentDevice.deviceName + " data " + new Random().nextInt(20000));
+                                if (socketThread != null) {
+                                    socketThread.sendData("Something from client " + currentDevice.deviceName + " data " + new Random().nextInt(20000));
                                     updateLog("socketServer: sendData sendData to server: true");
                                 }
                             }
                         }
                     }
                 });
+                // sendLongSMS();
             }
         });
     }
@@ -246,11 +256,11 @@ public class MainActivity extends AppCompatActivity implements DeviceAdapter.Eve
 
     private void startSocketClient(String host) {
 
-        if (socketClient != null) {
-            socketClient.stop();
+        if (socketThread != null) {
+            socketThread.interrupt();
         }
 
-        socketClient = new SocketClient(host, new SocketClient.SocketClientListener() {
+        socketThread = new SocketThread(SocketThread.SocketType.CLIENT, 45454, host, new CommunicationThread.SocketListener() {
             @Override
             public void onConnected(String message) {
                 updateLog("SocketClient: onConnected " + message);
@@ -272,16 +282,16 @@ public class MainActivity extends AppCompatActivity implements DeviceAdapter.Eve
             }
         });
 
-        socketClient.start();
+        socketThread.start();
     }
 
     private void startSocketServer() {
 
-        if (socketServer != null) {
-            socketServer.stop();
+        if (socketThread != null) {
+            socketThread.interrupt();
         }
 
-        socketServer = new SocketServer(new SocketServer.SocketServerListener() {
+        socketThread = new SocketThread(SocketThread.SocketType.SERVER, 45454, null, new CommunicationThread.SocketListener() {
             @Override
             public void onConnected(String message) {
                 updateLog("SocketServer: onConnected " + message);
@@ -303,7 +313,7 @@ public class MainActivity extends AppCompatActivity implements DeviceAdapter.Eve
             }
         });
 
-        socketServer.start();
+        socketThread.start();
     }
 
     private void discoverPeers() {

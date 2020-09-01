@@ -25,68 +25,72 @@
                 android:paddingVertical="5dp"
                 app:flexWrap="wrap">
 
-                <Button
-                    android:id="@+id/btnSetName"
+                <EditText
+                    android:id="@+id/edtAddress"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Set Name" />
-
-                <Button
-                    android:id="@+id/btnOwner"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Owner"
+                    android:digits="0123456789."
+                    android:hint="TCP/IP Address"
+                    android:inputType="number|numberDecimal"
                     app:layout_flexGrow="1" />
 
                 <Button
-                    android:id="@+id/btnScan"
+                    android:id="@+id/btnServer"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Scan"
+                    android:text="Server"
                     app:layout_flexGrow="1" />
 
                 <Button
-                    android:id="@+id/btnConnectionInfo"
+                    android:id="@+id/btnClient"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Con Info"
+                    android:text="Client"
                     app:layout_flexGrow="1" />
 
                 <Button
-                    android:id="@+id/btnSocket"
+                    android:id="@+id/btnSend"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="TCP/IP Socket"
+                    android:text="Send Data"
+                    app:layout_flexGrow="1" />
+
+                <Button
+                    android:id="@+id/btnWebServer"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Web Server"
                     app:layout_flexGrow="1" />
 
             </com.google.android.flexbox.FlexboxLayout>
 
-            <LinearLayout
+            <TextView
+                android:id="@+id/txtStatus"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content">
-
-                <ScrollView
-                    android:id="@+id/scrollView"
-                    android:layout_width="match_parent"
-                    android:layout_height="100dp"
-                    android:paddingHorizontal="10dp"
-                    android:paddingVertical="15dp">
-
-                    <TextView
-                        android:id="@+id/txtStatus"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="P2P Demo."
-                        android:textSize="16sp" />
-                </ScrollView>
-            </LinearLayout>
+                android:layout_height="wrap_content"
+                android:paddingHorizontal="10dp"
+                android:paddingVertical="15dp"
+                android:text="Start Server/Client"
+                android:textSize="16sp" />
 
         </LinearLayout>
 
-        <ListView
-            android:id="@+id/listView"
+        <ScrollView
+            android:id="@+id/scrollView"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
+            android:layout_height="match_parent"
+            android:background="#000"
+            android:padding="10dp">
+
+            <TextView
+                android:id="@+id/txtConsole"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="TCP/IP Socket Console."
+                android:textColor="#fff"
+                android:textSize="9dp" />
+
+        </ScrollView>
 
     </LinearLayout>
 

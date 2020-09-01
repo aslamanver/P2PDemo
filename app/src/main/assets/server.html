@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>WPOS-TERMINAL</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script type=text/javascript>
+
+        (function () {
+
+            var ws = new WebSocket("ws://" + location.hostname + ":45454");
+
+            ws.onopen = () => {
+                console.log("onopen")
+            }
+
+            ws.onmessage = (e) => {
+                console.log('Message from server ', e.data);
+                ws.send('from Browser: ' + e.data)
+            }
+
+            ws.onerror = err => console.log(err)
+
+        })()
+
+
+    </script>
+</head>
+<body>
+
+<div class="container">
+    <i>Server is working...</i>
+</div>
+
+</body>
+</html>

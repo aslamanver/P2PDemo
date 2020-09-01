@@ -1,8 +1,10 @@
-package com.aslam.p2pdemo;
+package com.aslam.p2pdemo.tcpsocket;
 
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.List;
 
 public class SocketThread extends Thread {
 
@@ -13,13 +15,14 @@ public class SocketThread extends Thread {
     SocketType socketType;
     ServerSocket serverSocket;
     CommunicationThread.SocketListener socketListener;
-    CommunicationThread communicationThread;
+    List<CommunicationThread> communicationThreadPool;
 
     public SocketThread(SocketType socketType, int port, String host, CommunicationThread.SocketListener socketListener) {
         this.socketType = socketType;
         this.port = port > 0 ? port : this.port;
         this.host = host != null ? host : this.host;
         this.socketListener = socketListener;
+        this.communicationThreadPool = new ArrayList<>();
     }
 
     @Override
@@ -30,28 +33,34 @@ public class SocketThread extends Thread {
                 while (true) {
                     Socket socket = serverSocket.accept();
                     socketListener.onConnected("Client connected from: " + socket.getRemoteSocketAddress());
-                    communicationThread = new CommunicationThread(socket, socketListener);
+                    CommunicationThread communicationThread = new CommunicationThread(socket, socketListener);
                     communicationThread.start();
+                    communicationThreadPool.add(communicationThread);
                 }
             } else if (socketType == SocketType.CLIENT) {
                 Socket socket = new Socket(host, port);
                 socketListener.onConnected("Server connected from: " + socket.getRemoteSocketAddress());
-                communicationThread = new CommunicationThread(socket, socketListener);
+                CommunicationThread communicationThread = new CommunicationThread(socket, socketListener);
                 communicationThread.start();
+                communicationThreadPool.add(communicationThread);
             }
         } catch (IOException e) {
             socketListener.onFailed(e);
         }
     }
 
+    private void interruptCommunications() {
+        for (CommunicationThread communicationThread : communicationThreadPool) {
+            communicationThread.interrupt();
+        }
+    }
+
     @Override
     public void interrupt() {
         try {
+            interruptCommunications();
             if (serverSocket != null) {
                 serverSocket.close();
-            }
-            if (communicationThread != null) {
-                communicationThread.interrupt();
             }
         } catch (IOException ex) {
             ex.printStackTrace();
@@ -60,6 +69,8 @@ public class SocketThread extends Thread {
     }
 
     public void sendData(String data) {
-        communicationThread.sendData(data);
+        for (CommunicationThread communicationThread : communicationThreadPool) {
+            communicationThread.sendData(data);
+        }
     }
 }

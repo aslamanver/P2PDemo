@@ -2,14 +2,11 @@ package com.aslam.p2pdemo;
 
 import android.Manifest;
 import android.content.BroadcastReceiver;
-import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
-import android.database.Cursor;
 import android.net.NetworkInfo;
-import android.net.Uri;
 import android.net.wifi.p2p.WifiP2pConfig;
 import android.net.wifi.p2p.WifiP2pDevice;
 import android.net.wifi.p2p.WifiP2pDeviceList;
@@ -19,10 +16,9 @@ import android.net.wifi.p2p.WifiP2pManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
-import android.provider.Telephony;
-import android.telephony.SmsManager;
 import android.util.Log;
 import android.view.View;
+import android.widget.ScrollView;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
@@ -30,16 +26,12 @@ import androidx.core.content.ContextCompat;
 import androidx.databinding.DataBindingUtil;
 
 import com.aslam.p2pdemo.databinding.ActivityMainBinding;
+import com.aslam.p2pdemo.tcpsocket.SocketThread;
 
-import java.io.EOFException;
-import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.net.ServerSocket;
-import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 
 public class MainActivity extends AppCompatActivity implements DeviceAdapter.EventListener {
 
@@ -48,8 +40,6 @@ public class MainActivity extends AppCompatActivity implements DeviceAdapter.Eve
     WifiP2pManager.Channel channel;
     List<WifiP2pDevice> peers = new ArrayList<>();
     DeviceAdapter deviceAdapter;
-    // SocketServer socketServer;
-    // SocketClient socketClient;
     WifiP2pDevice currentDevice;
     SocketThread socketThread;
 
@@ -60,10 +50,10 @@ public class MainActivity extends AppCompatActivity implements DeviceAdapter.Eve
             if (WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION.equals(action)) {
                 int state = intent.getIntExtra(WifiP2pManager.EXTRA_WIFI_STATE, -1);
                 if (state == WifiP2pManager.WIFI_P2P_STATE_ENABLED) {
-                    updateLog("Wifi P2P is enabled");
+                    consoleLog("Wifi P2P is enabled");
                     buttonEnabled(true);
                 } else {
-                    updateLog("Wi-Fi P2P is not enabled");
+                    consoleLog("Wi-Fi P2P is not enabled");
                     buttonEnabled(false);
                 }
             } else if (WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION.equals(action)) {
@@ -74,10 +64,10 @@ public class MainActivity extends AppCompatActivity implements DeviceAdapter.Eve
                 if (manager != null) {
                     NetworkInfo networkInfo = (NetworkInfo) intent.getParcelableExtra(WifiP2pManager.EXTRA_NETWORK_INFO);
                     if (networkInfo.isConnected()) {
-                        updateLog("Connected to p2p network. Requesting network details");
+                        consoleLog("Connected to p2p network. Requesting network details");
                         requestConnectionInfo();
                     } else {
-                        updateLog("Disconnected from p2p network");
+                        consoleLog("Disconnected from p2p network");
                     }
                 }
             } else if (WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION.equals(action)) {
@@ -119,12 +109,9 @@ public class MainActivity extends AppCompatActivity implements DeviceAdapter.Eve
             }
         });
 
-        binding.btnServer.setOnClickListener(new View.OnClickListener() {
+        binding.btnOwner.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-
-                startSocketServer();
-
                 manager.requestGroupInfo(channel, new WifiP2pManager.GroupInfoListener() {
                     @Override
                     public void onGroupInfoAvailable(WifiP2pGroup group) {
@@ -132,40 +119,26 @@ public class MainActivity extends AppCompatActivity implements DeviceAdapter.Eve
                             manager.removeGroup(channel, new WifiP2pManager.ActionListener() {
                                 @Override
                                 public void onSuccess() {
-                                    updateLog("removeGroup: onSuccess");
+                                    consoleLog("removeGroup: onSuccess");
                                 }
 
                                 @Override
                                 public void onFailure(int reason) {
-                                    updateLog("removeGroup: onFailure");
+                                    consoleLog("removeGroup: onFailure");
                                 }
                             });
-                        }
-                        manager.createGroup(channel, new WifiP2pManager.ActionListener() {
-                            @Override
-                            public void onSuccess() {
-                                updateLog("createGroup: onSuccess");
-                            }
+                        } else {
+                            manager.createGroup(channel, new WifiP2pManager.ActionListener() {
+                                @Override
+                                public void onSuccess() {
+                                    consoleLog("createGroup: onSuccess");
+                                }
 
-                            @Override
-                            public void onFailure(int reason) {
-                                updateLog("createGroup: onFailure");
-                            }
-                        });
-                    }
-                });
-            }
-        });
-
-        binding.btnClient.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                manager.requestConnectionInfo(channel, new WifiP2pManager.ConnectionInfoListener() {
-                    @Override
-                    public void onConnectionInfoAvailable(WifiP2pInfo info) {
-                        updateLog("requestConnectionInfo: onConnectionInfoAvailable groupFormed " + info.groupFormed);
-                        if (info.groupFormed) {
-                            startSocketClient(info.groupOwnerAddress.getHostAddress());
+                                @Override
+                                public void onFailure(int reason) {
+                                    consoleLog("createGroup: onFailure");
+                                }
+                            });
                         }
                     }
                 });
@@ -186,38 +159,32 @@ public class MainActivity extends AppCompatActivity implements DeviceAdapter.Eve
             }
         });
 
-        binding.btnSend.setOnClickListener(new View.OnClickListener() {
+        binding.btnSocket.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 manager.requestConnectionInfo(channel, new WifiP2pManager.ConnectionInfoListener() {
                     @Override
                     public void onConnectionInfoAvailable(WifiP2pInfo info) {
+                        consoleLog("requestConnectionInfo: onConnectionInfoAvailable groupFormed " + info.groupFormed);
+                        Intent intent = new Intent(getApplicationContext(), SocketActivity.class);
                         if (info.groupFormed) {
-                            if (info.isGroupOwner) {
-                                if (socketThread != null) {
-                                    socketThread.sendData("Something from server " + currentDevice.deviceName + " data " + new Random().nextInt(10000));
-                                    updateLog("socketServer: sendData to clients : true");
-                                }
-                            } else {
-                                if (socketThread != null) {
-                                    socketThread.sendData("Something from client " + currentDevice.deviceName + " data " + new Random().nextInt(20000));
-                                    updateLog("socketServer: sendData sendData to server: true");
-                                }
-                            }
+                            intent.putExtra("HOST", info.groupOwnerAddress.getHostAddress());
+                            intent.putExtra("OWNER", info.isGroupOwner);
                         }
+                        startActivity(intent);
                     }
                 });
-                // sendLongSMS();
             }
         });
+
+        binding.btnSocket.performClick();
     }
 
     public void buttonEnabled(boolean enabled) {
-        binding.btnServer.setEnabled(enabled);
-        binding.btnClient.setEnabled(enabled);
+        binding.btnOwner.setEnabled(enabled);
         binding.btnScan.setEnabled(enabled);
         binding.btnConnectionInfo.setEnabled(enabled);
-        binding.btnSend.setEnabled(enabled);
+        binding.btnSocket.setEnabled(enabled);
     }
 
     public void setDeviceName(String devName) {
@@ -234,12 +201,12 @@ public class MainActivity extends AppCompatActivity implements DeviceAdapter.Eve
             arglist[2] = new WifiP2pManager.ActionListener() {
                 @Override
                 public void onSuccess() {
-                    updateLog("setDeviceName: onSuccess");
+                    consoleLog("setDeviceName: onSuccess");
                 }
 
                 @Override
                 public void onFailure(int reason) {
-                    updateLog("setDeviceName: onSuccess");
+                    consoleLog("setDeviceName: onSuccess");
                 }
             };
             setDeviceName.invoke(manager, arglist);
@@ -254,78 +221,16 @@ public class MainActivity extends AppCompatActivity implements DeviceAdapter.Eve
         }
     }
 
-    private void startSocketClient(String host) {
-
-        if (socketThread != null) {
-            socketThread.interrupt();
-        }
-
-        socketThread = new SocketThread(SocketThread.SocketType.CLIENT, 45454, host, new CommunicationThread.SocketListener() {
-            @Override
-            public void onConnected(String message) {
-                updateLog("SocketClient: onConnected " + message);
-            }
-
-            @Override
-            public void onDisconnected(EOFException exception) {
-                updateLog("SocketClient: onDisconnected " + exception.getMessage());
-            }
-
-            @Override
-            public void onFailed(Exception exception) {
-                updateLog("SocketClient: onFailed " + exception.getMessage());
-            }
-
-            @Override
-            public void onDataReceived(String data) {
-                updateLog("SocketClient: onDataReceived " + data);
-            }
-        });
-
-        socketThread.start();
-    }
-
-    private void startSocketServer() {
-
-        if (socketThread != null) {
-            socketThread.interrupt();
-        }
-
-        socketThread = new SocketThread(SocketThread.SocketType.SERVER, 45454, null, new CommunicationThread.SocketListener() {
-            @Override
-            public void onConnected(String message) {
-                updateLog("SocketServer: onConnected " + message);
-            }
-
-            @Override
-            public void onDisconnected(EOFException exception) {
-                updateLog("SocketServer: onDisconnected");
-            }
-
-            @Override
-            public void onFailed(Exception exception) {
-                updateLog("SocketServer: onFailed " + exception.getMessage());
-            }
-
-            @Override
-            public void onDataReceived(String data) {
-                updateLog("SocketServer: onDataReceived " + data);
-            }
-        });
-
-        socketThread.start();
-    }
-
     private void discoverPeers() {
         manager.discoverPeers(channel, new WifiP2pManager.ActionListener() {
             @Override
             public void onSuccess() {
-                updateLog("discoverPeers: onSuccess");
+                consoleLog("discoverPeers: onSuccess");
             }
 
             @Override
             public void onFailure(int reason) {
-                updateLog("discoverPeers: onFailure");
+                consoleLog("discoverPeers: onFailure");
             }
         });
     }
@@ -334,11 +239,11 @@ public class MainActivity extends AppCompatActivity implements DeviceAdapter.Eve
         manager.requestConnectionInfo(channel, new WifiP2pManager.ConnectionInfoListener() {
             @Override
             public void onConnectionInfoAvailable(WifiP2pInfo info) {
-                updateLog("requestConnectionInfo: onConnectionInfoAvailable groupFormed " + info.groupFormed);
+                consoleLog("requestConnectionInfo: onConnectionInfoAvailable groupFormed " + info.groupFormed);
                 if (info.groupFormed && info.isGroupOwner) {
-                    updateLog("SERVER " + info.groupOwnerAddress);
+                    consoleLog("SERVER " + info.groupOwnerAddress);
                 } else if (info.groupFormed) {
-                    updateLog("CLIENT " + info.groupOwnerAddress);
+                    consoleLog("CLIENT OF " + info.groupOwnerAddress);
                 }
             }
         });
@@ -384,12 +289,18 @@ public class MainActivity extends AppCompatActivity implements DeviceAdapter.Eve
         }
     }
 
-    private void updateLog(final String message) {
+    private void consoleLog(final String message) {
         Log.e("P2PDemo", message);
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                binding.txtStatus.setText(message);
+                binding.txtStatus.setText(binding.txtStatus.getText().toString() + "\n" + message);
+                binding.scrollView.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        binding.scrollView.fullScroll(ScrollView.FOCUS_DOWN);
+                    }
+                });
             }
         });
     }
@@ -401,12 +312,12 @@ public class MainActivity extends AppCompatActivity implements DeviceAdapter.Eve
             manager.cancelConnect(channel, new WifiP2pManager.ActionListener() {
                 @Override
                 public void onSuccess() {
-                    updateLog("cancelConnect: onSuccess " + device.deviceName);
+                    consoleLog("cancelConnect: onSuccess " + device.deviceName);
                 }
 
                 @Override
                 public void onFailure(int reason) {
-                    updateLog("cancelConnect: onSuccess " + device.deviceName);
+                    consoleLog("cancelConnect: onSuccess " + device.deviceName);
                 }
             });
             return;
@@ -417,12 +328,12 @@ public class MainActivity extends AppCompatActivity implements DeviceAdapter.Eve
         manager.connect(channel, wifiP2pConfig, new WifiP2pManager.ActionListener() {
             @Override
             public void onSuccess() {
-                updateLog("connect: onSuccess " + device.deviceName);
+                consoleLog("connect: onSuccess " + device.deviceName);
             }
 
             @Override
             public void onFailure(int reason) {
-                updateLog("connect: onFailure " + device.deviceName);
+                consoleLog("connect: onFailure " + device.deviceName);
             }
         });
     }

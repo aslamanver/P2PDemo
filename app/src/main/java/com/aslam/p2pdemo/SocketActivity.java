@@ -2,7 +2,6 @@ package com.aslam.p2pdemo;
 
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
-import android.os.FileUtils;
 import android.text.format.Formatter;
 import android.util.Log;
 import android.view.View;
@@ -16,27 +15,18 @@ import com.aslam.p2pdemo.tcpsocket.CommunicationThread;
 import com.aslam.p2pdemo.tcpsocket.SocketThread;
 import com.aslam.p2pdemo.tcpsocket.SocketWebServer;
 import com.aslam.p2pdemo.websocket.MyWebSocketClient;
-import com.aslam.p2pdemo.websocket.MyWebSocketServer;
 import com.aslam.p2pdemo.websocket.MyWebSocketListener;
+import com.aslam.p2pdemo.websocket.MyWebSocketServer;
 
 import org.java_websocket.WebSocket;
 import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.handshake.ServerHandshake;
 
-import java.io.BufferedReader;
 import java.io.EOFException;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.net.ServerSocket;
-import java.net.Socket;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
-import java.util.Date;
 import java.util.Random;
-import java.util.Scanner;
 
 public class SocketActivity extends AppCompatActivity {
 
@@ -50,7 +40,7 @@ public class SocketActivity extends AppCompatActivity {
     MyWebSocketServer webSocketServer;
     MyWebSocketClient webSocketClient;
 
-    int socketType = 1;
+    int socketType = 2;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

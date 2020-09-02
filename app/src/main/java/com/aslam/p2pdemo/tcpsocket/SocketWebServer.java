@@ -3,6 +3,8 @@ package com.aslam.p2pdemo.tcpsocket;
 import android.content.Context;
 import android.media.AudioManager;
 import android.media.ToneGenerator;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 
 import java.io.BufferedReader;
@@ -28,9 +30,14 @@ public class SocketWebServer extends Thread {
     public void run() {
         try {
             serverSocket = new ServerSocket(8080);
+            try {
+                ToneGenerator toneGenerator = new ToneGenerator(AudioManager.STREAM_MUSIC, 100);
+                toneGenerator.startTone(ToneGenerator.TONE_CDMA_CALL_SIGNAL_ISDN_NORMAL, 50);
+            } catch (RuntimeException ex) {
+                ex.printStackTrace();
+            }
             while (true) {
                 final Socket socket = serverSocket.accept();
-                new ToneGenerator(AudioManager.STREAM_MUSIC, 100).startTone(ToneGenerator.TONE_CDMA_CALL_SIGNAL_ISDN_NORMAL, 50);
                 new Thread(new Runnable() {
                     @Override
                     public void run() {

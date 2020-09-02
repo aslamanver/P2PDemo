@@ -181,10 +181,8 @@ public class SocketActivity extends AppCompatActivity {
     private void stopWebSocketServer() {
         if (webSocketServer != null) {
             try {
-                webSocketServer.stop();
+                webSocketServer.stop(1000);
                 consoleLog("WebSocket Server stopped");
-            } catch (IOException e) {
-                e.printStackTrace();
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }

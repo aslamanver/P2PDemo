@@ -115,31 +115,28 @@ public class MainActivity extends AppCompatActivity implements DeviceAdapter.Eve
                 manager.requestGroupInfo(channel, new WifiP2pManager.GroupInfoListener() {
                     @Override
                     public void onGroupInfoAvailable(WifiP2pGroup group) {
-                        if (group != null) {
-                            manager.removeGroup(channel, new WifiP2pManager.ActionListener() {
-                                @Override
-                                public void onSuccess() {
-                                    consoleLog("removeGroup: onSuccess");
-                                }
+                        manager.removeGroup(channel, new WifiP2pManager.ActionListener() {
+                            @Override
+                            public void onSuccess() {
+                                consoleLog("removeGroup: onSuccess");
+                            }
 
-                                @Override
-                                public void onFailure(int reason) {
-                                    consoleLog("removeGroup: onFailure");
-                                }
-                            });
-                        } else {
-                            manager.createGroup(channel, new WifiP2pManager.ActionListener() {
-                                @Override
-                                public void onSuccess() {
-                                    consoleLog("createGroup: onSuccess");
-                                }
+                            @Override
+                            public void onFailure(int reason) {
+                                consoleLog("removeGroup: onFailure");
+                            }
+                        });
+                        manager.createGroup(channel, new WifiP2pManager.ActionListener() {
+                            @Override
+                            public void onSuccess() {
+                                consoleLog("createGroup: onSuccess");
+                            }
 
-                                @Override
-                                public void onFailure(int reason) {
-                                    consoleLog("createGroup: onFailure");
-                                }
-                            });
-                        }
+                            @Override
+                            public void onFailure(int reason) {
+                                consoleLog("createGroup: onFailure");
+                            }
+                        });
                     }
                 });
             }
@@ -176,8 +173,6 @@ public class MainActivity extends AppCompatActivity implements DeviceAdapter.Eve
                 });
             }
         });
-
-        binding.btnSocket.performClick();
     }
 
     public void buttonEnabled(boolean enabled) {
@@ -251,12 +246,14 @@ public class MainActivity extends AppCompatActivity implements DeviceAdapter.Eve
 
     protected void onResume() {
         super.onResume();
-
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             askPermission();
-            return;
         }
+    }
 
+    @Override
+    protected void onStart() {
+        super.onStart();
         IntentFilter intentFilter = new IntentFilter();
         intentFilter.addAction(WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION);
         intentFilter.addAction(WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION);
@@ -266,14 +263,8 @@ public class MainActivity extends AppCompatActivity implements DeviceAdapter.Eve
     }
 
     @Override
-    protected void onPause() {
-        super.onPause();
-
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            askPermission();
-            return;
-        }
-
+    protected void onStop() {
+        super.onStop();
         unregisterReceiver(broadcastReceiver);
     }
 

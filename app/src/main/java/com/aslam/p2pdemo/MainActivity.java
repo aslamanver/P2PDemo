@@ -115,28 +115,31 @@ public class MainActivity extends AppCompatActivity implements DeviceAdapter.Eve
                 manager.requestGroupInfo(channel, new WifiP2pManager.GroupInfoListener() {
                     @Override
                     public void onGroupInfoAvailable(WifiP2pGroup group) {
-                        manager.removeGroup(channel, new WifiP2pManager.ActionListener() {
-                            @Override
-                            public void onSuccess() {
-                                consoleLog("removeGroup: onSuccess");
-                            }
+                        if (group != null) {
+                            manager.removeGroup(channel, new WifiP2pManager.ActionListener() {
+                                @Override
+                                public void onSuccess() {
+                                    consoleLog("removeGroup: onSuccess");
+                                }
 
-                            @Override
-                            public void onFailure(int reason) {
-                                consoleLog("removeGroup: onFailure");
-                            }
-                        });
-                        manager.createGroup(channel, new WifiP2pManager.ActionListener() {
-                            @Override
-                            public void onSuccess() {
-                                consoleLog("createGroup: onSuccess");
-                            }
+                                @Override
+                                public void onFailure(int reason) {
+                                    consoleLog("removeGroup: onFailure");
+                                }
+                            });
+                        } else {
+                            manager.createGroup(channel, new WifiP2pManager.ActionListener() {
+                                @Override
+                                public void onSuccess() {
+                                    consoleLog("createGroup: onSuccess");
+                                }
 
-                            @Override
-                            public void onFailure(int reason) {
-                                consoleLog("createGroup: onFailure");
-                            }
-                        });
+                                @Override
+                                public void onFailure(int reason) {
+                                    consoleLog("createGroup: onFailure");
+                                }
+                            });
+                        }
                     }
                 });
             }

@@ -30,14 +30,14 @@ public class SocketWebServer extends Thread {
     public void run() {
         try {
             serverSocket = new ServerSocket(8080);
-            try {
-                ToneGenerator toneGenerator = new ToneGenerator(AudioManager.STREAM_MUSIC, 100);
-                toneGenerator.startTone(ToneGenerator.TONE_CDMA_CALL_SIGNAL_ISDN_NORMAL, 50);
-            } catch (RuntimeException ex) {
-                ex.printStackTrace();
-            }
             while (true) {
                 final Socket socket = serverSocket.accept();
+                try {
+                    ToneGenerator toneGenerator = new ToneGenerator(AudioManager.STREAM_MUSIC, 100);
+                    toneGenerator.startTone(ToneGenerator.TONE_CDMA_CALL_SIGNAL_ISDN_NORMAL, 50);
+                } catch (RuntimeException ex) {
+                    ex.printStackTrace();
+                }
                 new Thread(new Runnable() {
                     @Override
                     public void run() {

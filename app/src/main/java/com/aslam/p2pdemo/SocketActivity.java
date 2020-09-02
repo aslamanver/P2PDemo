@@ -50,7 +50,7 @@ public class SocketActivity extends AppCompatActivity {
     MyWebSocketServer webSocketServer;
     MyWebSocketClient webSocketClient;
 
-    int socketType = 2;
+    int socketType = 1;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

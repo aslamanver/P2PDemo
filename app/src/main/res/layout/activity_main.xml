@@ -26,16 +26,17 @@
                 app:flexWrap="wrap">
 
                 <Button
-                    android:id="@+id/btnSetName"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Set Name" />
-
-                <Button
-                    android:id="@+id/btnOwner"
+                    android:id="@+id/btnCreateGroup"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Owner"
+                    android:text="Create Group"
+                    app:layout_flexGrow="1" />
+
+                <Button
+                    android:id="@+id/btnRemoveGroup"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Remove Group"
                     app:layout_flexGrow="1" />
 
                 <Button
@@ -68,16 +69,18 @@
                 <ScrollView
                     android:id="@+id/scrollView"
                     android:layout_width="match_parent"
-                    android:layout_height="100dp"
+                    android:layout_height="200dp"
+                    android:background="#000"
                     android:paddingHorizontal="10dp"
                     android:paddingVertical="15dp">
 
                     <TextView
-                        android:id="@+id/txtStatus"
+                        android:id="@+id/txtLogs"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="P2P Demo."
-                        android:textSize="16sp" />
+                        android:text="P2P Demo"
+                        android:textColor="#FFF"
+                        android:textSize="9sp" />
                 </ScrollView>
             </LinearLayout>
 

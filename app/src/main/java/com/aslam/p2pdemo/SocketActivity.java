@@ -188,7 +188,7 @@ public class SocketActivity extends AppCompatActivity {
 
             URI uri = new URI("ws://" + host + ":" + port);
 
-            webSocketClient = new MyWebSocketClient(uri, new MyWebSocketListener.Client() {
+            webSocketClient = new MyWebSocketClient(host, uri, new MyWebSocketListener.Client() {
                 @Override
                 public void onOpen(ServerHandshake handshakeData) {
                     consoleLog("WebSocket: new connection opened");

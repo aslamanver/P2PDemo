@@ -8,7 +8,7 @@ const rl = readline.createInterface({
     output: process.stdout
 });
 
-const client = new W3CWebSocket('ws://192.168.8.103:45454');
+const client = new W3CWebSocket('ws://192.168.2.222:45454');
 
 client.onerror = function () {
     console.log('Connection Error');

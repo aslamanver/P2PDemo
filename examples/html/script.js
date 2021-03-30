@@ -1,16 +1,34 @@
-(function () {
+let ws
 
-    var ws = new WebSocket("ws://192.168.8.103:45454");
+window.addEventListener('load', function() {
+    document.getElementById('textarea').value = JSON.stringify(JSON.parse(document.getElementById('textarea').value), undefined, 4);
+})
 
-    ws.onopen = () => {
-        console.log("onopen")
+function connection() {
+
+    let address = document.getElementById('address').value
+
+    if (ws) ws.close()
+
+    ws = new WebSocket(address)
+
+    ws.onopen = () => updateResult("Connection is opened")
+
+    ws.onclose = () => updateResult("Connection is closed")
+
+    ws.onerror = (err) => updateResult('Error occured: ' + err)
+
+    ws.onmessage = (message) => { updateResult('Terminal: ' + message.data) }
+}
+
+function sendPaymentRequest() {
+    if (ws) {
+        let request = document.getElementById('textarea').value;
+        ws.send(request)
+        updateResult('Request sent: ' + request)
     }
+}
 
-    ws.onmessage = (e) => {
-        console.log('Message from server ', e.data);
-        ws.send('from Browser: ' + e.data)
-    }
-
-    ws.onerror = err => console.log(err)
-
-})()
+function updateResult(data) {
+    document.getElementById('result').innerHTML = '<li>' + data + '</li>' + document.getElementById('result').innerHTML
+}

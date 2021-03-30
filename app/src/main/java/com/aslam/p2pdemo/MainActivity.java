@@ -1,24 +1,20 @@
 package com.aslam.p2pdemo;
 
 import android.Manifest;
-import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
+import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
-import android.net.NetworkInfo;
-import android.net.wifi.p2p.WifiP2pConfig;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.net.wifi.p2p.WifiP2pDevice;
-import android.net.wifi.p2p.WifiP2pDeviceList;
-import android.net.wifi.p2p.WifiP2pGroup;
-import android.net.wifi.p2p.WifiP2pInfo;
-import android.net.wifi.p2p.WifiP2pManager;
 import android.os.Build;
 import android.os.Bundle;
-import android.provider.Settings;
+import android.os.IBinder;
 import android.util.Log;
 import android.view.View;
-import android.widget.ScrollView;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
@@ -26,223 +22,117 @@ import androidx.core.content.ContextCompat;
 import androidx.databinding.DataBindingUtil;
 
 import com.aslam.p2pdemo.databinding.ActivityMainBinding;
-import com.aslam.p2pdemo.tcpsocket.SocketThread;
+import com.aslam.p2pdemo.services.BaseForegroundService;
+import com.aslam.p2pdemo.services.P2PService;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
+import java.util.concurrent.atomic.AtomicInteger;
 
-public class MainActivity extends AppCompatActivity implements DeviceAdapter.EventListener {
+public class MainActivity extends AppCompatActivity {
 
     ActivityMainBinding binding;
-    WifiP2pManager manager;
-    WifiP2pManager.Channel channel;
-    List<WifiP2pDevice> peers = new ArrayList<>();
     DeviceAdapter deviceAdapter;
-    WifiP2pDevice currentDevice;
-    SocketThread socketThread;
 
-    BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
+    P2PService p2pService;
+    boolean mBound = false;
+    private ServiceConnection mConnection = new ServiceConnection() {
+
         @Override
-        public void onReceive(Context context, Intent intent) {
-            String action = intent.getAction();
-            if (WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION.equals(action)) {
-                int state = intent.getIntExtra(WifiP2pManager.EXTRA_WIFI_STATE, -1);
-                if (state == WifiP2pManager.WIFI_P2P_STATE_ENABLED) {
-                    consoleLog("Wifi P2P is enabled");
-                    buttonEnabled(true);
-                } else {
-                    consoleLog("Wi-Fi P2P is not enabled");
-                    buttonEnabled(false);
+        public void onServiceConnected(ComponentName className, IBinder service) {
+
+            P2PService.LocalBinder binder = (P2PService.LocalBinder) service;
+            p2pService = (P2PService) binder.getService();
+            mBound = true;
+            consoleLog("onServiceConnected");
+
+            setTitle(p2pService.getConnectionType().toString());
+            if (p2pService.getConnectionType() == P2PService.ConnectionType.CLIENT) {
+                getSupportActionBar().setBackgroundDrawable(new ColorDrawable(Color.parseColor(p2pService.isWebSocketConnected() ? "#008000" : "#FF0000")));
+            }
+
+            p2pService.setServiceListener(new P2PService.ServiceListener() {
+
+                @Override
+                protected void onConsoleLog(String message) {
+                    consoleLog(message);
                 }
-            } else if (WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION.equals(action)) {
-                if (manager != null) {
-                    manager.requestPeers(channel, peerListListener);
+
+                @Override
+                protected void onPeersAvailable(List<WifiP2pDevice> peers) {
+                    deviceAdapter.notifyDataSetChanged();
                 }
-            } else if (WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION.equals(action)) {
-                if (manager != null) {
-                    NetworkInfo networkInfo = (NetworkInfo) intent.getParcelableExtra(WifiP2pManager.EXTRA_NETWORK_INFO);
-                    if (networkInfo.isConnected()) {
-                        consoleLog("Connected to p2p network. Requesting network details");
-                        requestConnectionInfo();
+
+                @Override
+                protected void onWebSocketOpen() {
+                    getSupportActionBar().setBackgroundDrawable(new ColorDrawable(Color.parseColor("#008000")));
+                }
+
+                @Override
+                protected void onWebSocketClose() {
+                    getSupportActionBar().setBackgroundDrawable(new ColorDrawable(Color.parseColor("#FF0000")));
+                }
+            });
+
+            deviceAdapter = new DeviceAdapter(getApplicationContext(), p2pService.peers, (position, device) -> {
+                if (device.isGroupOwner()) {
+                    if (device.status == WifiP2pDevice.CONNECTED) {
+                        p2pService.disconnectDevice(device);
                     } else {
-                        consoleLog("Disconnected from p2p network");
+                        p2pService.connectDevice(device);
                     }
+                } else {
+                    Toast.makeText(getApplicationContext(), "It's not an owner", Toast.LENGTH_SHORT).show();
                 }
-            } else if (WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION.equals(action)) {
-                currentDevice = (WifiP2pDevice) intent.getParcelableExtra(WifiP2pManager.EXTRA_WIFI_P2P_DEVICE);
-            }
-        }
-    };
+            });
 
-    WifiP2pManager.PeerListListener peerListListener = new WifiP2pManager.PeerListListener() {
+            binding.listView.setAdapter(deviceAdapter);
+            p2pService.printLogs();
+        }
+
         @Override
-        public void onPeersAvailable(WifiP2pDeviceList wifiP2pDeviceList) {
-            if (!wifiP2pDeviceList.getDeviceList().equals(peers)) {
-                peers.clear();
-                peers.addAll(wifiP2pDeviceList.getDeviceList());
-                deviceAdapter.notifyDataSetChanged();
-            }
+        public void onServiceDisconnected(ComponentName componentName) {
+            mBound = false;
         }
     };
 
     @Override
+    public void onStart() {
+        super.onStart();
+        BaseForegroundService.start(this, P2PService.class);
+        bindService(new Intent(this, P2PService.class), mConnection, Context.BIND_AUTO_CREATE);
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+        unbindService(mConnection);
+    }
+
+    @Override
     protected void onCreate(Bundle savedInstanceState) {
+
         super.onCreate(savedInstanceState);
         binding = DataBindingUtil.setContentView(this, R.layout.activity_main);
 
-        manager = (WifiP2pManager) getSystemService(Context.WIFI_P2P_SERVICE);
-        channel = manager.initialize(this, getMainLooper(), null);
-
-        deviceAdapter = new DeviceAdapter(this, peers, this);
-        binding.listView.setAdapter(deviceAdapter);
-
-        buttonEnabled(false);
-
-        final String correctName = "Device-" + getDeviceSerial(getApplicationContext());
-        binding.btnSetName.setText("Set Name: " + correctName);
-        binding.btnSetName.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                setDeviceName(correctName);
-            }
-        });
-
-        binding.btnOwner.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                manager.requestGroupInfo(channel, new WifiP2pManager.GroupInfoListener() {
-                    @Override
-                    public void onGroupInfoAvailable(WifiP2pGroup group) {
-                        if (group != null) {
-                            manager.removeGroup(channel, new WifiP2pManager.ActionListener() {
-                                @Override
-                                public void onSuccess() {
-                                    consoleLog("removeGroup: onSuccess");
-                                }
-
-                                @Override
-                                public void onFailure(int reason) {
-                                    consoleLog("removeGroup: onFailure");
-                                }
-                            });
-                        } else {
-                            manager.createGroup(channel, new WifiP2pManager.ActionListener() {
-                                @Override
-                                public void onSuccess() {
-                                    consoleLog("createGroup: onSuccess");
-                                }
-
-                                @Override
-                                public void onFailure(int reason) {
-                                    consoleLog("createGroup: onFailure");
-                                }
-                            });
-                        }
-                    }
-                });
-            }
-        });
-
-        binding.btnScan.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                discoverPeers();
-            }
-        });
-
-        binding.btnConnectionInfo.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                requestConnectionInfo();
-            }
-        });
-
-        binding.btnSocket.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                manager.requestConnectionInfo(channel, new WifiP2pManager.ConnectionInfoListener() {
-                    @Override
-                    public void onConnectionInfoAvailable(WifiP2pInfo info) {
-                        consoleLog("requestConnectionInfo: onConnectionInfoAvailable groupFormed " + info.groupFormed);
-                        Intent intent = new Intent(getApplicationContext(), SocketActivity.class);
-                        if (info.groupFormed) {
-                            intent.putExtra("HOST", info.groupOwnerAddress.getHostAddress());
-                            intent.putExtra("OWNER", info.isGroupOwner);
-                        }
-                        startActivity(intent);
-                    }
-                });
-            }
-        });
-    }
-
-    public void buttonEnabled(boolean enabled) {
-        binding.btnOwner.setEnabled(enabled);
-        binding.btnScan.setEnabled(enabled);
-        binding.btnConnectionInfo.setEnabled(enabled);
-        binding.btnSocket.setEnabled(enabled);
-    }
-
-    public void setDeviceName(String devName) {
-        try {
-            Class[] paramTypes = new Class[3];
-            paramTypes[0] = WifiP2pManager.Channel.class;
-            paramTypes[1] = String.class;
-            paramTypes[2] = WifiP2pManager.ActionListener.class;
-            Method setDeviceName = manager.getClass().getMethod("setDeviceName", paramTypes);
-            setDeviceName.setAccessible(true);
-            Object arglist[] = new Object[3];
-            arglist[0] = channel;
-            arglist[1] = devName;
-            arglist[2] = new WifiP2pManager.ActionListener() {
-                @Override
-                public void onSuccess() {
-                    consoleLog("setDeviceName: onSuccess");
-                }
-
-                @Override
-                public void onFailure(int reason) {
-                    consoleLog("setDeviceName: onSuccess");
-                }
-            };
-            setDeviceName.invoke(manager, arglist);
-        } catch (NoSuchMethodException e) {
-            e.printStackTrace();
-        } catch (IllegalAccessException e) {
-            e.printStackTrace();
-        } catch (IllegalArgumentException e) {
-            e.printStackTrace();
-        } catch (InvocationTargetException e) {
-            e.printStackTrace();
+        if (P2PService.getCurrentConnectionType(this) == P2PService.ConnectionType.CLIENT) {
+            binding.btnCreateGroup.setVisibility(View.GONE);
+            binding.btnRemoveGroup.setVisibility(View.GONE);
         }
-    }
 
-    private void discoverPeers() {
-        manager.discoverPeers(channel, new WifiP2pManager.ActionListener() {
-            @Override
-            public void onSuccess() {
-                consoleLog("discoverPeers: onSuccess");
-            }
+        binding.btnScan.setOnClickListener(v -> p2pService.discoverPeers(1));
+        binding.btnConnectionInfo.setOnClickListener(v -> p2pService.requestConnectionInfo());
+        binding.btnCreateGroup.setOnClickListener(v -> p2pService.createGroup());
+        binding.btnRemoveGroup.setOnClickListener(v -> p2pService.removeGroup());
 
-            @Override
-            public void onFailure(int reason) {
-                consoleLog("discoverPeers: onFailure");
-            }
-        });
-    }
-
-    private void requestConnectionInfo() {
-        manager.requestConnectionInfo(channel, new WifiP2pManager.ConnectionInfoListener() {
-            @Override
-            public void onConnectionInfoAvailable(WifiP2pInfo info) {
-                consoleLog("requestConnectionInfo: onConnectionInfoAvailable groupFormed " + info.groupFormed);
-                if (info.groupFormed && info.isGroupOwner) {
-                    consoleLog("SERVER " + info.groupOwnerAddress);
-                } else if (info.groupFormed) {
-                    consoleLog("CLIENT OF " + info.groupOwnerAddress);
-                }
+        binding.btnSocket.setOnClickListener(v -> {
+            String message = String.valueOf(new Random().nextInt(1000));
+            if (p2pService.getConnectionType() == P2PService.ConnectionType.CLIENT && p2pService.webSocketClient != null) {
+                p2pService.webSocketClient.send(message);
+                p2pService.consoleLog("WebSocket: sent " + message);
+            } else if (p2pService.webSocketServer != null) {
+                p2pService.webSocketServer.send(message);
+                p2pService.consoleLog("WebSocket: sent " + message);
             }
         });
     }
@@ -252,23 +142,6 @@ public class MainActivity extends AppCompatActivity implements DeviceAdapter.Eve
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             askPermission();
         }
-    }
-
-    @Override
-    protected void onStart() {
-        super.onStart();
-        IntentFilter intentFilter = new IntentFilter();
-        intentFilter.addAction(WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION);
-        intentFilter.addAction(WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION);
-        intentFilter.addAction(WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION);
-        intentFilter.addAction(WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION);
-        registerReceiver(broadcastReceiver, intentFilter);
-    }
-
-    @Override
-    protected void onStop() {
-        super.onStop();
-        unregisterReceiver(broadcastReceiver);
     }
 
     private void askPermission() {
@@ -283,85 +156,9 @@ public class MainActivity extends AppCompatActivity implements DeviceAdapter.Eve
         }
     }
 
-    private void consoleLog(final String message) {
-        Log.e("P2PDemo", message);
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                binding.txtStatus.setText(binding.txtStatus.getText().toString() + "\n" + message);
-                binding.scrollView.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        binding.scrollView.fullScroll(ScrollView.FOCUS_DOWN);
-                    }
-                });
-            }
+    private void consoleLog(String message) {
+        runOnUiThread(() -> {
+            binding.txtLogs.setText(p2pService.getLogs().toString());
         });
-    }
-
-    @Override
-    public void onClickEvent(int position, final WifiP2pDevice device) {
-
-        if (device.status == WifiP2pDevice.INVITED || device.status == WifiP2pDevice.CONNECTED) {
-            manager.cancelConnect(channel, new WifiP2pManager.ActionListener() {
-                @Override
-                public void onSuccess() {
-                    consoleLog("cancelConnect: onSuccess " + device.deviceName);
-                }
-
-                @Override
-                public void onFailure(int reason) {
-                    consoleLog("cancelConnect: onSuccess " + device.deviceName);
-                }
-            });
-            return;
-        }
-
-        WifiP2pConfig wifiP2pConfig = new WifiP2pConfig();
-        wifiP2pConfig.deviceAddress = device.deviceAddress;
-        manager.connect(channel, wifiP2pConfig, new WifiP2pManager.ActionListener() {
-            @Override
-            public void onSuccess() {
-                consoleLog("connect: onSuccess " + device.deviceName);
-            }
-
-            @Override
-            public void onFailure(int reason) {
-                consoleLog("connect: onFailure " + device.deviceName);
-            }
-        });
-    }
-
-    public static String getStatusText(int statusCode) {
-        String status = "UNKNOWN";
-        switch (statusCode) {
-            case WifiP2pDevice.AVAILABLE:
-                status = "AVAILABLE";
-                break;
-            case WifiP2pDevice.CONNECTED:
-                status = "CONNECTED";
-                break;
-            case WifiP2pDevice.FAILED:
-                status = "FAILED";
-                break;
-            case WifiP2pDevice.INVITED:
-                status = "INVITED";
-                break;
-            case WifiP2pDevice.UNAVAILABLE:
-                status = "UNAVAILABLE";
-                break;
-        }
-        return status;
-    }
-
-    public static String getDeviceSerial(Context context) {
-        String serial = null;
-        try {
-            serial = Build.SERIAL.equals(Build.UNKNOWN) ? Build.getSerial() : Build.SERIAL;
-        } catch (Exception ex) {
-            ex.printStackTrace();
-            serial = Settings.Secure.getString(context.getContentResolver(), Settings.Secure.ANDROID_ID);
-        }
-        return serial;
     }
 }

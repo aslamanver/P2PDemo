@@ -8,6 +8,7 @@ import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 
 import com.aslam.p2pdemo.databinding.DeviceLayoutRowBinding;
+import com.aslam.p2pdemo.services.P2PService;
 
 import java.util.List;
 
@@ -49,7 +50,7 @@ public class DeviceAdapter extends BaseAdapter {
 
         final WifiP2pDevice device = deviceList.get(position);
 
-        binding.txtName.setText(device.deviceName + " " + MainActivity.getStatusText(device.status) + " isOwner " + device.isGroupOwner());
+        binding.txtName.setText(device.deviceName + " " + P2PService.getStatusText(device.status) + (device.isGroupOwner() ? " OWNER" : ""));
         binding.txtAddress.setText(device.deviceAddress);
 
         binding.mainLayout.setOnClickListener(new View.OnClickListener() {
